@@ -17,7 +17,7 @@ request.onsuccess = function(event) {
   // check if app is online, if yes run uploadBudget() function to send all local db data to api
   if (navigator.onLine) {
     // we haven't created this yet, but we will soon, so let's comment it out for now
-    // uploadBudget();
+    uploadBudget();
   }
 };
 
@@ -37,3 +37,41 @@ function saveRecord(record) {
   // add record to your store with add method
   budgetObjectStore.add(record);
 }
+
+function uploadBudget() {
+  // open a transaction on your new_budget db
+  const transaction = db.transaction(["new_budget"], "readwrite");
+  // access your new_budget object store
+  const budgetObjectStore = transaction.objectStore("new_budget");
+  // get all records from store and set to a variable
+  const getAll = budgetObjectStore.getAll();
+
+  getAll.onsuccess = function() {
+    if (getAll.result.length > 0) {
+      fetch("/api/transaction/bulk", {
+        method: "POST",
+        body: JSON.stringify(getAll.result),
+        headers: {
+          Accept: "application/json, text/plain, */*",
+          "Content-Type": "application/json"
+        }
+      })
+      .then(response => response.json())
+      .then(() => {
+        // if successful, open a transaction on your new_budget db
+        const transaction = db.transaction(["new_budget"], "readwrite");
+
+        // access your new_budget object store
+        const budgetObjectStore = transaction.objectStore("new_budget");
+
+        // clear all items in your store
+        budgetObjectStore.clear();
+      });
+    }
+  };
+}
+
+// listen for app coming back online
+window.addEventListener("online", uploadBudget);
+
+
